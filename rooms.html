@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rooms | MTI Hotel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand"><div class="logo"><i data-lucide="concierge-bell"></i></div><div><h2>MTI HOTEL</h2><p>Hotel Reservation System</p></div></div>
+  <nav>
+    <a href="home.html"><i data-lucide="house"></i> Home</a>
+    <a href="customers.html"><i data-lucide="users"></i> Customers</a>
+    <a href="reservations.html"><i data-lucide="calendar-check"></i> Reservations</a>
+    <a href="rooms.html" class="active"><i data-lucide="bed-double"></i> Rooms</a>
+    <a href="payments.html"><i data-lucide="credit-card"></i> Payments</a>
+  </nav>
+</aside>
+<main>
+  <header class="hero">
+    <span class="eyebrow"><i data-lucide="bed-double"></i> MTI Hotel · Room Management</span>
+    <h1>Rooms</h1>
+    <div class="ornament"><span></span><i data-lucide="gem"></i><span></span></div>
+    <p class="sub">Manage room types, prices and availability.</p>
+  </header>
+  <div class="stats lux" id="stats"></div>
+  <section class="card">
+    <div class="toolbar">
+      <input id="q" placeholder="Search by room number or type">
+      <select id="st"><option value="">All statuses</option><option>Available</option><option>Occupied</option><option>Maintenance</option></select>
+      <button id="add">Add room</button>
+    </div>
+    <div class="wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Room No.</th><th>Type</th><th>Price / night</th><th>Status</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog" id="f">
+    <h3 id="ttl">Add room</h3>
+    <label>Room number<input name="RoomNumber" required></label>
+    <label>Room type<select name="RoomType"><option>Single</option><option>Double</option><option>Suite</option></select></label>
+    <label>Price per night (EGP)<input name="PricePerNight" type="number" min="0" required></label>
+    <label>Status<select name="RoomStatus"><option>Available</option><option>Occupied</option><option>Maintenance</option></select></label>
+    <div class="actions"><button type="button" class="ghost" id="cancel">Cancel</button><button>Save room</button></div>
+  </form>
+</dialog>
+
+<script>
+// TODO(backend): replace this array with fetch('/api/rooms') calls. Field names match the database.
+let rooms = [
+  {RoomID:1, RoomNumber:"101", RoomType:"Single", PricePerNight:900,  RoomStatus:"Available"},
+  {RoomID:2, RoomNumber:"102", RoomType:"Double", PricePerNight:1400, RoomStatus:"Occupied"},
+  {RoomID:3, RoomNumber:"103", RoomType:"Suite",  PricePerNight:2800, RoomStatus:"Available"},
+  {RoomID:4, RoomNumber:"104", RoomType:"Double", PricePerNight:1400, RoomStatus:"Maintenance"}
+];
+let editing = null;
+const $ = s => document.querySelector(s);
+const icons = ["layout-grid","circle-check","key-round","wrench"];
+const cls = {Available:"ok", Occupied:"warn", Maintenance:"bad"};
+
+function render() {
+  const q = $("#q").value.toLowerCase(), st = $("#st").value;
+  const list = rooms.filter(r => (!st || r.RoomStatus === st) && (r.RoomNumber + r.RoomType).toLowerCase().includes(q));
+  $("#rows").innerHTML = list.length ? list.map(r => `
+    <tr>
+      <td>${r.RoomID}</td><td>${r.RoomNumber}</td><td>${r.RoomType}</td>
+      <td>EGP ${r.PricePerNight.toLocaleString()}</td>
+      <td><span class="badge ${cls[r.RoomStatus]}">${r.RoomStatus}</span></td>
+      <td><button class="ghost" onclick="edit(${r.RoomID})">Edit</button> <button class="del" onclick="del(${r.RoomID})">Delete</button></td>
+    </tr>`).join("") : '<tr><td colspan="6" class="empty">No rooms match. Clear the filters or add a room.</td></tr>';
+  const c = s => rooms.filter(r => r.RoomStatus === s).length;
+  $("#stats").innerHTML = [["Total rooms", rooms.length], ["Available", c("Available")], ["Occupied", c("Occupied")], ["Maintenance", c("Maintenance")]]
+    .map((x, i) => `<div class="card"><div class="ico"><i data-lucide="${icons[i]}"></i></div><div><small>${x[0]}</small><b>${x[1]}</b></div></div>`).join("");
+  if (window.lucide) lucide.createIcons();
+}
+
+function openForm(r) {
+  editing = r;
+  $("#ttl").textContent = r ? "Edit room" : "Add room";
+  const f = $("#f");
+  f.RoomNumber.value = r ? r.RoomNumber : "";
+  f.RoomType.value = r ? r.RoomType : "Single";
+  f.PricePerNight.value = r ? r.PricePerNight : "";
+  f.RoomStatus.value = r ? r.RoomStatus : "Available";
+  $("#dlg").showModal();
+}
+window.edit = id => openForm(rooms.find(r => r.RoomID === id));
+window.del = id => { if (confirm("Delete this room?")) { rooms = rooms.filter(r => r.RoomID !== id); render(); } };
+
+$("#add").onclick = () => openForm(null);
+$("#cancel").onclick = () => $("#dlg").close();
+$("#f").onsubmit = () => {
+  const f = $("#f");
+  const d = {RoomNumber:f.RoomNumber.value, RoomType:f.RoomType.value, PricePerNight:+f.PricePerNight.value, RoomStatus:f.RoomStatus.value};
+  if (editing) Object.assign(editing, d);
+  else rooms.push({RoomID: Math.max(0, ...rooms.map(r => r.RoomID)) + 1, ...d});
+  render();
+};
+$("#q").oninput = render;
+$("#st").onchange = render;
+render();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

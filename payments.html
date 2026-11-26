@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payments | MTI Hotel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand"><div class="logo"><i data-lucide="concierge-bell"></i></div><div><h2>MTI HOTEL</h2><p>Hotel Reservation System</p></div></div>
+  <nav>
+    <a href="home.html"><i data-lucide="house"></i> Home</a>
+    <a href="customers.html"><i data-lucide="users"></i> Customers</a>
+    <a href="reservations.html"><i data-lucide="calendar-check"></i> Reservations</a>
+    <a href="rooms.html"><i data-lucide="bed-double"></i> Rooms</a>
+    <a href="payments.html" class="active"><i data-lucide="credit-card"></i> Payments</a>
+  </nav>
+</aside>
+<main>
+  <header class="hero">
+    <span class="eyebrow"><i data-lucide="credit-card"></i> MTI Hotel · Billing</span>
+    <h1>Payments</h1>
+    <div class="ornament"><span></span><i data-lucide="gem"></i><span></span></div>
+    <p class="sub">Track what guests have paid for their reservations.</p>
+  </header>
+  <div class="stats lux" id="stats"></div>
+  <section class="card">
+    <div class="toolbar">
+      <input id="q" placeholder="Search by payment or reservation ID">
+      <select id="st"><option value="">All statuses</option><option>Paid</option><option>Pending</option><option>Refunded</option></select>
+      <button id="add">Add payment</button>
+    </div>
+    <div class="wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Reservation</th><th>Amount</th><th>Date</th><th>Method</th><th>Status</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog" id="f">
+    <h3 id="ttl">Add payment</h3>
+    <label>Reservation ID<input name="ReservationID" type="number" min="1" required></label>
+    <label>Amount (EGP)<input name="Amount" type="number" min="0" required></label>
+    <label>Payment date<input name="PaymentDate" type="date" required></label>
+    <label>Method<select name="PaymentMethod"><option>Cash</option><option>Credit Card</option><option>Bank Transfer</option></select></label>
+    <label>Status<select name="PaymentStatus"><option>Paid</option><option>Pending</option><option>Refunded</option></select></label>
+    <div class="actions"><button type="button" class="ghost" id="cancel">Cancel</button><button>Save payment</button></div>
+  </form>
+</dialog>
+
+<script>
+// TODO(backend): replace this array with fetch('/api/payments') calls. Field names match the database.
+let pays = [
+  {PaymentID:1, ReservationID:1, Amount:2700, PaymentDate:"2026-11-15", PaymentMethod:"Credit Card",  PaymentStatus:"Paid"},
+  {PaymentID:2, ReservationID:2, Amount:1400, PaymentDate:"2026-11-17", PaymentMethod:"Cash",         PaymentStatus:"Pending"},
+  {PaymentID:3, ReservationID:3, Amount:5600, PaymentDate:"2026-11-18", PaymentMethod:"Bank Transfer", PaymentStatus:"Paid"}
+];
+let editing = null;
+const $ = s => document.querySelector(s);
+const icons = ["receipt","badge-check","clock","undo-2"];
+const cls = {Paid:"ok", Pending:"warn", Refunded:"bad"};
+const sum = s => pays.filter(p => p.PaymentStatus === s).reduce((a, p) => a + p.Amount, 0).toLocaleString();
+
+function render() {
+  const q = $("#q").value, st = $("#st").value;
+  const list = pays.filter(p => (!st || p.PaymentStatus === st) && (p.PaymentID + " " + p.ReservationID).includes(q));
+  $("#rows").innerHTML = list.length ? list.map(p => `
+    <tr>
+      <td>${p.PaymentID}</td><td>#${p.ReservationID}</td>
+      <td>EGP ${p.Amount.toLocaleString()}</td><td>${p.PaymentDate}</td><td>${p.PaymentMethod}</td>
+      <td><span class="badge ${cls[p.PaymentStatus]}">${p.PaymentStatus}</span></td>
+      <td><button class="ghost" onclick="edit(${p.PaymentID})">Edit</button> <button class="del" onclick="del(${p.PaymentID})">Delete</button></td>
+    </tr>`).join("") : '<tr><td colspan="7" class="empty">No payments match. Clear the filters or add a payment.</td></tr>';
+  $("#stats").innerHTML = [["Total payments", pays.length], ["Paid", "EGP " + sum("Paid")], ["Pending", "EGP " + sum("Pending")], ["Refunded", "EGP " + sum("Refunded")]]
+    .map((x, i) => `<div class="card"><div class="ico"><i data-lucide="${icons[i]}"></i></div><div><small>${x[0]}</small><b>${x[1]}</b></div></div>`).join("");
+  if (window.lucide) lucide.createIcons();
+}
+
+function openForm(p) {
+  editing = p;
+  $("#ttl").textContent = p ? "Edit payment" : "Add payment";
+  const f = $("#f");
+  f.ReservationID.value = p ? p.ReservationID : "";
+  f.Amount.value = p ? p.Amount : "";
+  f.PaymentDate.value = p ? p.PaymentDate : new Date().toISOString().slice(0, 10);
+  f.PaymentMethod.value = p ? p.PaymentMethod : "Cash";
+  f.PaymentStatus.value = p ? p.PaymentStatus : "Paid";
+  $("#dlg").showModal();
+}
+window.edit = id => openForm(pays.find(p => p.PaymentID === id));
+window.del = id => { if (confirm("Delete this payment?")) { pays = pays.filter(p => p.PaymentID !== id); render(); } };
+
+$("#add").onclick = () => openForm(null);
+$("#cancel").onclick = () => $("#dlg").close();
+$("#f").onsubmit = () => {
+  const f = $("#f");
+  const d = {ReservationID:+f.ReservationID.value, Amount:+f.Amount.value, PaymentDate:f.PaymentDate.value, PaymentMethod:f.PaymentMethod.value, PaymentStatus:f.PaymentStatus.value};
+  if (editing) Object.assign(editing, d);
+  else pays.push({PaymentID: Math.max(0, ...pays.map(p => p.PaymentID)) + 1, ...d});
+  render();
+};
+$("#q").oninput = render;
+$("#st").onchange = render;
+render();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
